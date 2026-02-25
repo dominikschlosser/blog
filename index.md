@@ -443,7 +443,7 @@ The wallet opens, shows the consent screen, and POSTs the response back to the v
 
 ### 3. Cross-Device QR Code
 
-On desktop, the same `openid4vp://` URI is shown as a QR code. The user scans it with their phone's wallet app. The wallet fetches the request, shows the consent screen, and POSTs the response to the verifier's `response_uri` — just like in the same-device flow. Meanwhile, the browser polls the verifier for the result until the response arrives.
+On desktop, the same `openid4vp://` URI is shown as a QR code. The user scans it with their phone's wallet app. The wallet fetches the request, shows the consent screen, and POSTs the response to the verifier's `response_uri` — just like in the same-device flow.
 
 ---
 
