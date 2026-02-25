@@ -168,7 +168,7 @@ Before the wallet can show credentials, it needs to get them. OID4VCI defines ho
 6. The wallet sends a credential request with the proof.
 7. The issuer checks the proof, creates the credential (embedding the wallet's public key so the credential is bound to this wallet), signs it, and sends it back. The wallet stores it locally.
 
-There's also an **Authorization Code Flow** where the wallet initiates the process: it discovers the issuer's metadata, starts an OAuth 2.0 authorization request with PKCE, the user authenticates at the issuer, and the wallet exchanges the resulting authorization code for an access token. The German EUDI wallet uses this flow — the wallet itself triggers issuance and the user authenticates directly at the issuer during the process.
+There's also an **Authorization Code Flow** where the wallet initiates the process: it discovers the issuer's metadata, starts an OAuth 2.0 authorization request with PKCE, and exchanges the resulting authorization code for an access token. How the user authenticates during this flow depends on the issuer — in the German ecosystem, the wallet reads the user's physical eID card directly (via NFC) and handles the authentication itself, rather than redirecting to the PID provider's login page.
 
 ## Credential Verification (OID4VP)
 
@@ -236,22 +236,27 @@ The verifier describes what it needs using **DCQL (Digital Credentials Query Lan
 
 This says: "I need a PID credential in SD-JWT format — specifically the family name, given name, and birthdate." The wallet only reveals those three fields, nothing else.
 
-DCQL also supports **`credential_sets`** for offering alternatives:
+DCQL also supports **`credential_sets`** for offering alternatives — for example, accepting a PID in either SD-JWT or mDOC format:
 
 ```json
 {
   "credentials": [
-    { "id": "german_pid", "format": "dc+sd-jwt", ... },
-    { "id": "french_pid", "format": "dc+sd-jwt", ... }
+    { "id": "pid_sdjwt", "format": "dc+sd-jwt",
+      "meta": { "vct_values": ["eu.europa.ec.eudi.pid.1"] },
+      "claims": [{ "path": ["family_name"] }, { "path": ["given_name"] }] },
+    { "id": "pid_mdoc", "format": "mso_mdoc",
+      "meta": { "doctype_value": "eu.europa.ec.eudi.pid.1" },
+      "claims": [{ "namespace": "eu.europa.ec.eudi.pid.1",
+                   "claim_name": "family_name" }] }
   ],
   "credential_sets": [{
     "purpose": "Identity verification",
-    "options": [["german_pid"], ["french_pid"]]
+    "options": [["pid_sdjwt"], ["pid_mdoc"]]
   }]
 }
 ```
 
-This means "I accept either a German or a French PID." The wallet uses whichever it has.
+The wallet picks whichever format it has.
 
 ### Verifier Authentication
 
