@@ -241,13 +241,24 @@ DCQL also supports **`credential_sets`** for offering alternatives — for examp
 ```json
 {
   "credentials": [
-    { "id": "pid_sdjwt", "format": "dc+sd-jwt",
+    {
+      "id": "pid_sdjwt",
+      "format": "dc+sd-jwt",
       "meta": { "vct_values": ["eu.europa.ec.eudi.pid.1"] },
-      "claims": [{ "path": ["family_name"] }, { "path": ["given_name"] }] },
-    { "id": "pid_mdoc", "format": "mso_mdoc",
+      "claims": [
+        { "path": ["family_name"] },
+        { "path": ["given_name"] }
+      ]
+    },
+    {
+      "id": "pid_mdoc",
+      "format": "mso_mdoc",
       "meta": { "doctype_value": "eu.europa.ec.eudi.pid.1" },
-      "claims": [{ "namespace": "eu.europa.ec.eudi.pid.1",
-                   "claim_name": "family_name" }] }
+      "claims": [
+        { "namespace": "eu.europa.ec.eudi.pid.1", "claim_name": "family_name" },
+        { "namespace": "eu.europa.ec.eudi.pid.1", "claim_name": "given_name" }
+      ]
+    }
   ],
   "credential_sets": [{
     "purpose": "Identity verification",
