@@ -30,8 +30,9 @@ The ecosystem has five main roles:
         └─────────────┘       └─────────────────┘
 
 ┌───────────────────────┐  ┌───────────────────────────────────────┐
-│ Attestation Provider  │  │ Status Provider                       │
-│ Verifier Reg. Certs   │  │ Token Status Lists (revocation)       │
+│ Attestation Providers │  │ Status Provider                       │
+│ (Registrars, Wallet   │  │ Token Status Lists (revocation)       │
+│  Provider, Access CA) │  │                                       │
 └───────────────────────┘  └───────────────────────────────────────┘
 ```
 
@@ -39,7 +40,7 @@ The ecosystem has five main roles:
 - **Credential Issuer** — Puts credentials into the wallet (e.g., a government agency issuing a digital ID). Uses the **OID4VCI** protocol.
 - **Wallet (Holder)** — The citizen's phone app. Stores credentials and lets the user decide what to share with whom.
 - **Verifier / Relying Party** — An online service that asks the wallet for credentials (e.g., to verify someone's age or identity). Uses **OID4VP**.
-- **Attestation Provider** — Gives verifiers a certificate proving they're allowed to request certain credentials.
+- **Attestation Providers** — Various entities that issue attestations to ecosystem participants. For example, an RP Registrar issues registration certificates to verifiers, a Wallet Provider issues wallet instance attestations proving the app's integrity, and Access CAs issue certificates to issuers and verifiers.
 - **Status Provider** — Hosts revocation lists so verifiers can check if a credential has been revoked.
 
 Two core protocols power everything. Both are built on **OAuth 2.0**:
