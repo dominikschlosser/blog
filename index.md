@@ -419,9 +419,9 @@ OID4VP is flexible by design — but too much flexibility makes cross-border int
 
 Without HAIP, Germany and France could implement OID4VP with completely different algorithms and formats. HAIP is the agreement on exactly how everyone does it.
 
-## Delivery Channels
+## Wallet Integration
 
-Three ways to get the wallet involved from a browser:
+Three ways to trigger the wallet from a browser:
 
 ### 1. W3C Digital Credentials API
 
