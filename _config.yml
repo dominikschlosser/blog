@@ -1,5 +1,5 @@
 title: EUDI Wallet Technical Blog
 description: A technical deep dive into the EU Digital Identity Wallet ecosystem
-remote_theme: pages-themes/minimal@v0.2.0
+remote_theme: pages-themes/cayman@v0.2.0
 plugins:
   - jekyll-remote-theme

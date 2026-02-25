@@ -7,13 +7,13 @@ title: "The EUDI Wallet Ecosystem: A Technical Deep Dive (Part 1)"
 
 *Part 1 — Protocols, Credential Formats, and Verification*
 
-The European Union is building a digital identity wallet for every citizen. Mandated by **eIDAS 2.0** (2024), every EU member state must offer a digital identity wallet — a smartphone app that lets citizens authenticate with online services, store and selectively share credentials, and sign documents electronically.
+The EU is building a digital identity wallet for every citizen. **eIDAS 2.0** (2024) requires every member state to offer one — a smartphone app that lets people log in to online services, store credentials, and share only the data they choose to.
 
-But how does it actually work under the hood? This post starts broad and progressively dives into the technical details of the protocols, credential formats, trust mechanisms, and verification flows that make up the EUDI ecosystem.
+This post explains how the whole thing works, starting with the big picture and then going deeper into the protocols, credential formats, and verification steps.
 
 ## The Big Picture
 
-The EUDI wallet ecosystem has five key roles:
+The ecosystem has five main roles:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -35,42 +35,42 @@ The EUDI wallet ecosystem has five key roles:
 └───────────────────────┘  └───────────────────────────────────────┘
 ```
 
-- **Trust Anchor** — A national authority that publishes signed trust lists. These lists declare which issuers and verifiers are legitimate.
-- **Credential Issuer** — Issues digital credentials to the wallet (e.g., a government agency issuing a national ID). Uses the **OID4VCI** protocol.
-- **Wallet (Holder)** — A smartphone app that stores credentials and presents them when requested. The citizen controls what gets shared.
-- **Verifier / Relying Party** — An online service that requests credentials from the wallet to authenticate or verify a user. Uses the **OID4VP** protocol.
-- **Attestation Provider** — Issues registration certificates to verifiers, proving they are authorized to request specific credentials.
-- **Status Provider** — Hosts revocation lists so verifiers can check if a credential has been revoked or suspended.
+- **Trust Anchor** — A national authority that publishes signed lists of who's allowed to issue credentials and who's allowed to verify them.
+- **Credential Issuer** — Puts credentials into the wallet (e.g., a government agency issuing a digital ID). Uses the **OID4VCI** protocol.
+- **Wallet (Holder)** — The citizen's phone app. Stores credentials and lets the user decide what to share with whom.
+- **Verifier / Relying Party** — An online service that asks the wallet for credentials (e.g., to verify someone's age or identity). Uses **OID4VP**.
+- **Attestation Provider** — Gives verifiers a certificate proving they're allowed to request certain credentials.
+- **Status Provider** — Hosts revocation lists so verifiers can check if a credential has been revoked.
 
-Two core protocols power the ecosystem, both built on **OAuth 2.0**:
+Two core protocols power everything. Both are built on **OAuth 2.0**:
 
-| Protocol | Purpose |
-|----------|---------|
-| **OpenID4VCI** (OpenID for Verifiable Credential Issuance) | Getting credentials INTO the wallet |
-| **OpenID4VP** (OpenID for Verifiable Presentations) | Getting credentials OUT for verification |
+| Protocol | What it does |
+|----------|-------------|
+| **OpenID4VCI** (Verifiable Credential Issuance) | Gets credentials INTO the wallet |
+| **OpenID4VP** (Verifiable Presentations) | Gets credentials OUT for verification |
 
 ## Credential Formats
 
-The EUDI ecosystem supports two credential formats:
+The ecosystem supports two formats:
 
 ### SD-JWT (Selective Disclosure JWT) — RFC 9901
 
-SD-JWT is JSON-based and extends standard JWTs with selective disclosure. Instead of revealing the entire credential, the holder can choose which claims to share.
+SD-JWT extends regular JWTs with selective disclosure. Instead of sharing the whole credential, the holder picks which fields to reveal.
 
-An SD-JWT credential looks like this:
+The format looks like this:
 
 ```
 <issuer-signed-jwt>~<disclosure-1>~<disclosure-2>~...~<kb-jwt>
 ```
 
-The components separated by `~`:
-1. **Issuer-signed JWT** — Contains hashed references (`_sd` array) to the claims, signed by the issuer
-2. **Disclosures** — Each is a base64url-encoded JSON array: `[salt, claim_name, claim_value]`
-3. **KB-JWT** (Key Binding JWT) — Proves the presenter is the credential owner (added at presentation time)
+The parts, separated by `~`:
+1. **Issuer-signed JWT** — Signed by the issuer, but instead of containing the actual values, it holds SHA-256 hashes of them (in an `_sd` array)
+2. **Disclosures** — Each one is a base64url-encoded array: `[salt, claim_name, claim_value]`
+3. **KB-JWT** (Key Binding JWT) — Added when presenting, proves the person showing the credential is its rightful owner
 
-The key insight: the issuer-signed JWT does not contain the actual claim values. It only contains SHA-256 hashes of the disclosures. When presenting, the wallet includes only the disclosures for claims the user consents to share. The verifier hashes each received disclosure and checks it against the `_sd` array — this proves the claim was part of the original credential without revealing anything else.
+The clever part: the signed JWT only has hashes, not actual values. When presenting, the wallet includes only the disclosures for claims the user agreed to share. The verifier hashes each disclosure and checks it against the `_sd` array — proving the claim was in the original credential, without seeing anything else.
 
-**Example disclosure:**
+**Example:**
 ```
 Encoded:   WyJfc0kiLCAiZ2l2ZW5fbmFtZSIsICJFcmlrYSJd
 Decoded:   ["_sI", "given_name", "Erika"]
@@ -80,33 +80,35 @@ Credential payload:
 { "_sd": ["H0wL...dGFi", "kL2g...9xYU"], "_sd_alg": "sha-256" }
 ```
 
-The salt in each disclosure ensures that identical values produce different hashes, preventing cross-credential correlation.
+The random salt in each disclosure makes sure that the same value (like "Erika") produces a different hash every time. This prevents anyone from guessing or correlating values across credentials.
 
 ### ISO mDOC (Mobile Document) — ISO 18013-5
 
-mDOC is CBOR-based (binary encoding) and designed primarily for proximity communication (NFC/BLE), though it also works over the internet. It uses a different structure:
+mDOC uses CBOR (a compact binary format) instead of JSON. It was originally designed for proximity use cases like NFC and Bluetooth (think: showing your driving license at a checkpoint), but also works over the internet.
 
-- **IssuerSigned** — Contains per-claim `IssuerSignedItem` entries grouped by namespace, plus a COSE signature over a Mobile Security Object (MSO) that contains digests of all items
-- **DeviceSigned** — Added at presentation time, contains a COSE signature proving the presenter holds the device key
+The structure is different from SD-JWT but the idea is the same:
 
-Selective disclosure works similarly in principle: the MSO contains per-element digests, and the wallet only includes the items the user approves. The verifier recomputes hashes from received items and checks them against the MSO.
+- **IssuerSigned** — Contains individual claim items grouped by namespace, plus a COSE signature over a Mobile Security Object (MSO) with digests of all items
+- **DeviceSigned** — Added at presentation time, proves the presenter holds the device key
+
+Selective disclosure works the same way in principle: the MSO has a hash for each claim, and the wallet only reveals the items the user approves.
 
 | Aspect | SD-JWT | mDOC |
 |--------|--------|------|
 | Encoding | JSON/JWT (text) | CBOR (binary) |
-| Selective disclosure | Per-claim hashed disclosures | Per-claim digests in MSO |
-| Holder binding | KB-JWT signed with `cnf.jwk` | DeviceAuth signed with device key |
+| Selective disclosure | Hashed disclosures | Digests in MSO |
+| Holder binding | KB-JWT with `cnf.jwk` | DeviceAuth with device key |
 | Session binding | KB-JWT `aud` + `nonce` | SessionTranscript hash |
 | Primary use | Online verification | Proximity + online |
 
-## Phase 1: Credential Issuance (OID4VCI)
+## Credential Issuance (OID4VCI)
 
-Before a wallet can present credentials, it needs to receive them. OID4VCI defines how an issuer pushes credentials into a wallet. The most common flow is the **Pre-Authorized Code Flow**, used when the user is already authenticated with the issuer (e.g., logged into a government portal):
+Before the wallet can show credentials, it needs to get them. OID4VCI defines how issuers deliver credentials to wallets. The most common variant is the **Pre-Authorized Code Flow** — used when the user is already logged in at the issuer (e.g., a government portal):
 
 ```
      User              Issuer                    Wallet
       │                   │                        │
-      │  1. Authenticate  │                        │
+      │  1. Log in        │                        │
       │ ────────────────► │                        │
       │                   │                        │
       │  2. QR code with  │                        │
@@ -131,18 +133,17 @@ Before a wallet can present credentials, it needs to receive them. OID4VCI defin
       │                   │ ─────────────────────► │
 ```
 
-**Step by step:**
+**What happens:**
 
-1. The user authenticates with the issuer (username/password, eID, etc.)
-2. The issuer generates a **credential offer** — a URI with a pre-authorized code:
+1. The user logs in to the issuer.
+2. The issuer creates a **credential offer** — a URI containing a one-time code (valid for ~5 minutes):
    ```
    openid-credential-offer://?credential_offer_uri=
      https://issuer.example/credential-offer/abc123
    ```
-   The offer contains the issuer URL, which credential types are available, and a one-time pre-authorized code (valid for ~5 minutes).
-3. The user scans the QR code with their wallet app.
-4. The wallet exchanges the pre-authorized code for an **access token** and a **c_nonce** (credential nonce).
-5. The wallet builds a **proof-of-possession JWT** — this proves the wallet controls the key that will be bound to the credential:
+3. The user scans the QR code with their wallet.
+4. The wallet sends the code to the issuer and gets back an **access token** and a **c_nonce** (a fresh random value).
+5. The wallet creates a **proof JWT** — this proves it controls a specific key pair. The nonce from step 4 goes into this proof to prevent replay:
    ```json
    {
      "typ": "openid4vci-proof+jwt",
@@ -150,20 +151,19 @@ Before a wallet can present credentials, it needs to receive them. OID4VCI defin
      "jwk": { /* wallet's public key */ }
    }
    {
-     "iss": "did:example:wallet",
      "aud": "https://issuer.example",
-     "nonce": "<c_nonce from step 5>",
+     "nonce": "<c_nonce from step 4>",
      "iat": 1704067200
    }
    ```
-6. The wallet sends a credential request with the proof JWT.
-7. The issuer verifies the proof, creates the credential embedding the wallet's public key (in `cnf.jwk` for SD-JWT), signs it, and returns it. The wallet stores the credential locally.
+6. The wallet sends a credential request with the proof.
+7. The issuer checks the proof, creates the credential (embedding the wallet's public key so the credential is bound to this wallet), signs it, and sends it back. The wallet stores it locally.
 
-There's also an **Authorization Code Flow** (the wallet initiates the flow, the user authenticates at the issuer via OAuth 2.0 with PKCE), but the pre-authorized flow is the most commonly used in the EUDI ecosystem.
+There's also an **Authorization Code Flow** where the wallet starts the process and the user logs in via a standard OAuth redirect, but the pre-authorized flow is more common in the EUDI ecosystem.
 
-## Phase 2: Credential Verification (OID4VP)
+## Credential Verification (OID4VP)
 
-This is where the real complexity lives. When an online service needs to verify a user's identity, OID4VP defines how it requests and receives credentials from the wallet.
+This is where most of the complexity lives. When a service wants to verify someone's identity, OID4VP defines how it asks the wallet for credentials and how the wallet responds.
 
 ### The Full Flow
 
@@ -204,11 +204,11 @@ This is where the real complexity lives. When an online service needs to verify 
       │ ◄───────────────── │                    │
 ```
 
-This uses **pass by reference**: the initial redirect only contains a short `request_uri` pointing to the full request object. The wallet fetches the actual request from that URI. This keeps QR codes small and redirect URLs manageable, since request objects can be large (DCQL query, encryption keys, registration certificate, etc.).
+Notice the **pass by reference** pattern: the initial redirect only has a short `request_uri` pointing to the full request. The wallet fetches it from there. This keeps QR codes small, since the full request can be large (query, encryption keys, registration certificate, etc.).
 
-### Step 1: Requesting Credentials with DCQL
+### Requesting Credentials with DCQL
 
-The verifier specifies what it needs using **DCQL (Digital Credentials Query Language)** — a JSON query language that replaces the older `presentation_definition` format:
+The verifier describes what it needs using **DCQL (Digital Credentials Query Language)** — a JSON format that specifies which credentials and which claims:
 
 ```json
 {
@@ -225,9 +225,9 @@ The verifier specifies what it needs using **DCQL (Digital Credentials Query Lan
 }
 ```
 
-This query says: "I need a PID credential in SD-JWT format, and I only need the family name, given name, and birthdate." The wallet will only disclose these three claims — everything else in the credential stays hidden.
+This says: "I need a PID credential in SD-JWT format — specifically the family name, given name, and birthdate." The wallet only reveals those three fields, nothing else.
 
-DCQL also supports **`credential_sets`** for expressing alternatives:
+DCQL also supports **`credential_sets`** for offering alternatives:
 
 ```json
 {
@@ -242,24 +242,24 @@ DCQL also supports **`credential_sets`** for expressing alternatives:
 }
 ```
 
-This says "I accept either a German PID or a French PID." The wallet picks whichever it has.
+This means "I accept either a German or a French PID." The wallet uses whichever it has.
 
-### Step 2: Verifier Authentication
+### Verifier Authentication
 
-The wallet needs to know who is requesting credentials. Four **client identifier schemes** exist:
+The wallet needs to know who's asking. Four **client identifier schemes** tell the wallet how to verify the verifier:
 
-| Scheme | `client_id` format | How trust is established |
-|--------|-------------------|--------------------------|
+| Scheme | `client_id` example | Trust basis |
+|--------|-------------------|-------------|
 | Pre-registered | `https://example.com` | Pre-registered with wallet provider |
-| `x509_san_dns` | `x509_san_dns:example.com` | X.509 certificate with matching DNS SAN |
-| `x509_hash` | `x509_hash:<sha256>` | SHA-256 fingerprint of X.509 certificate |
-| `verifier_attestation` | `verifier_attestation:<sub>` | Attestation JWT from a trusted authority |
+| `x509_san_dns` | `x509_san_dns:example.com` | X.509 cert with matching DNS name |
+| `x509_hash` | `x509_hash:<sha256>` | SHA-256 hash of X.509 certificate |
+| `verifier_attestation` | `verifier_attestation:<sub>` | Attestation JWT from trusted authority |
 
-For `x509_san_dns` (the most common production scheme), the verifier signs the request JWT with its X.509 certificate (included in the `x5c` header). The wallet extracts the DNS Subject Alternative Name from the certificate and verifies it matches the `client_id`.
+The most common production scheme is `x509_san_dns`: the verifier signs its request with an X.509 certificate, and the wallet checks that the certificate's DNS name matches the `client_id`.
 
 #### Registration Certificates
 
-In the EUDI ecosystem, wallets additionally require a **Registration Certificate** (`rc-rp+jwt`) — issued by a national Trust Anchor — that explicitly lists which credentials and claims the verifier is authorized to request:
+On top of that, the EUDI ecosystem requires verifiers to carry a **Registration Certificate** (`rc-rp+jwt`). This is issued by a national Trust Anchor and explicitly lists what credentials and claims the verifier is allowed to ask for:
 
 ```json
 {
@@ -275,42 +275,42 @@ In the EUDI ecosystem, wallets additionally require a **Registration Certificate
 }
 ```
 
-The wallet enforces this: if a verifier requests claims not listed in its registration certificate, the request is rejected. This is a powerful privacy safeguard — a verifier that's only authorized for age verification can't suddenly request your full name and address.
+The wallet enforces this: if a verifier asks for claims that aren't in its registration certificate, the request gets rejected. A verifier that's only approved for age verification can't sneakily request your full name and address.
 
-### Step 3: Secure Response Delivery
+### Secure Response Delivery
 
-HAIP (High Assurance Interoperability Profile) mandates that responses are **encrypted**. The verifier generates a fresh **ephemeral EC P-256 key pair** for each request and includes the public key in `client_metadata.jwks`. The wallet encrypts its response using ECDH-ES key agreement with A256GCM content encryption, producing a JWE (JSON Web Encryption).
+HAIP (the EU's interoperability profile, more on that below) requires all responses to be **encrypted**. For each request, the verifier creates a fresh **ephemeral key pair** and sends the public key along. The wallet encrypts its response with that key:
 
 ```
 Verifier                                  Wallet
    │                                        │
-   │  Generate ephemeral P-256 key pair     │
-   │  Include public key in request         │
+   │  Generate fresh P-256 key pair         │
+   │  Send public key in request            │
    │ ─────────────────────────────────────► │
    │                                        │
-   │              Encrypt vp_token with     │
+   │              Encrypt response with     │
    │              ECDH-ES + A256GCM         │
    │ ◄───────────────────────────────────── │
    │                                        │
    │  Decrypt with stored private key       │
 ```
 
-A fresh key per request provides **forward secrecy** — compromising one key only affects that single session.
+A new key for every request means **forward secrecy** — if one key leaks, only that one session is affected.
 
-The response mode is `direct_post.jwt`: the wallet POSTs the encrypted JWE directly to the verifier's `response_uri`.
+The wallet POSTs the encrypted response directly to the verifier's `response_uri` (this is called `direct_post.jwt` mode).
 
-### Step 4: Credential Verification
+### Credential Verification
 
-Once the verifier decrypts the response, it must verify the credential's authenticity, integrity, and binding. This is the most involved step.
+After decrypting the response, the verifier needs to check that the credential is real, unmodified, and presented by its rightful owner. This is the most involved part.
 
-#### Trust Verification via ETSI Trust Lists
+#### Checking Issuer Trust via ETSI Trust Lists
 
-How does the verifier know the credential was issued by a legitimate authority?
+How does the verifier know the credential came from a legitimate issuer?
 
-1. **Fetch** the trust list (a signed JWT) from the Trust Anchor's URL
-2. **Look up** the credential's issuer in the trust list
-3. **Extract** the issuer's X.509 certificate from the trust list entry
-4. **Verify** the credential's signature using that certificate
+1. **Fetch** the trust list (a signed JWT) from the Trust Anchor
+2. **Find** the credential's issuer in the list
+3. **Get** the issuer's X.509 certificate from the list entry
+4. **Verify** the credential's signature with that certificate
 
 ```json
 {
@@ -326,94 +326,94 @@ How does the verifier know the credential was issued by a legitimate authority?
 }
 ```
 
-Only the Trust Anchor's root certificate needs to be pre-configured — everything else is discovered dynamically.
+Only the Trust Anchor's own certificate needs to be pre-configured. Everything else is looked up dynamically.
 
 #### SD-JWT Verification
 
-For an SD-JWT credential, the verifier performs these checks:
+For an SD-JWT credential, the verifier runs through these checks:
 
-1. **Parse** — Split on `~` to get: issuer JWT, disclosures[], KB-JWT
-2. **Verify issuer signature** — Look up the issuer's public key via the trust list, verify the JWT signature
-3. **Check timestamps** — `iat` must be in the past, `exp` must be in the future
-4. **Verify disclosures** — For each disclosure:
-   - Decode from base64url: `[salt, claim_name, claim_value]`
-   - Compute `base64url(SHA-256(disclosure_string))`
-   - Check the computed digest exists in the credential's `_sd` array
-   - Reject duplicate digests or reserved claim names (`_sd`, `...`)
-5. **Verify holder binding (KB-JWT)** — This proves the presenter owns the credential:
-   - Extract `cnf.jwk` (the holder's public key) from the issuer-signed credential
-   - Verify the KB-JWT signature with that public key
+1. **Parse** — Split on `~` to get the issuer JWT, disclosures, and KB-JWT
+2. **Check the issuer signature** — Look up the issuer's key in the trust list, verify the JWT signature
+3. **Check timestamps** — `iat` (issued at) in the past, `exp` (expires) in the future
+4. **Check each disclosure** —
+   - Decode it: `[salt, claim_name, claim_value]`
+   - Hash it: `base64url(SHA-256(disclosure_string))`
+   - Make sure the hash is in the credential's `_sd` array
+   - Reject duplicates or reserved names (`_sd`, `...`)
+5. **Check holder binding (KB-JWT)** — This proves the presenter actually owns the credential:
+   - Get the holder's public key (`cnf.jwk`) from the issuer-signed credential
+   - Verify the KB-JWT was signed with the matching private key
    - Check `aud` matches the verifier's `client_id`
    - Check `nonce` matches the request nonce
-   - Check `iat` is recent (within acceptable time window)
-   - Check `sd_hash` equals `base64url(SHA-256(<entire-presentation-string>))`
+   - Check `iat` is recent
+   - Check `sd_hash` matches `base64url(SHA-256(<full presentation string>))`
 
-The `sd_hash` is particularly important: it binds the KB-JWT to the exact set of disclosed claims. Without it, an attacker could take a valid KB-JWT and attach it to a different set of disclosures.
+The `sd_hash` is important: it ties the KB-JWT to the exact set of disclosed claims. Without it, someone could steal a valid KB-JWT and attach it to different disclosures.
 
 #### mDOC Verification
 
-For mDOC credentials, the process is analogous but uses CBOR/COSE instead of JSON/JWT:
+mDOC verification follows the same logic but uses CBOR/COSE instead of JSON/JWT:
 
-1. **Parse CBOR** structure, extract Documents
-2. **Verify COSE signature** (IssuerAuth) using the issuer's key from the trust list
-3. **Validate MSO** (Mobile Security Object) — check docType, validity timestamps
-4. **Verify IssuerSignedItems** — encode each to tagged CBOR, compute SHA-256, check against MSO's ValueDigests
-5. **Verify DeviceAuth** — COSE signature with the device key embedded in the MSO, validating the SessionTranscript (which includes nonce, client_id, response_uri)
+1. **Parse** the CBOR structure
+2. **Verify the COSE signature** (IssuerAuth) with the issuer's key from the trust list
+3. **Check the MSO** (Mobile Security Object) — docType, validity timestamps
+4. **Check each item** — hash the IssuerSignedItem, verify it matches the MSO's ValueDigests
+5. **Check DeviceAuth** — COSE signature with the device key from the MSO, including a SessionTranscript that binds the response to the request
 
-#### Revocation Checking with Token Status Lists
+#### Revocation via Token Status Lists
 
-Credentials can be revoked or suspended. The issuer publishes a **Token Status List** (`statuslist+jwt`) — a DEFLATE-compressed bit array distributed as a signed JWT.
+Credentials can be revoked or suspended. The issuer publishes a **Token Status List** — a compressed bit array in a signed JWT.
 
-Each credential contains a status reference:
+Each credential has a status reference:
 ```json
 { "status_list": { "idx": 42, "uri": "https://issuer.example/status/1" } }
 ```
 
-The verifier fetches the entire list, decompresses it, and reads the bits at index 42:
+The verifier downloads the full list, decompresses it, and reads the bits at index 42:
 
 | Bits per entry | Possible statuses |
 |---------------|-------------------|
 | 1 bit | VALID / INVALID |
 | 2 bits | VALID / INVALID / SUSPENDED |
-| 8 bits | Up to 256 application-specific statuses |
+| 8 bits | Up to 256 custom statuses |
 
-This is **privacy-preserving by design**: the verifier fetches the entire list, so the issuer cannot determine which specific credential is being checked.
+This is **privacy-preserving**: since the verifier always downloads the entire list, the issuer can't tell which credential is being checked.
 
 ## HAIP: The Interoperability Profile
 
-The OID4VP spec is intentionally flexible — too flexible for a real cross-border ecosystem. HAIP (High Assurance Interoperability Profile) narrows the choices to ensure EU-wide interoperability:
+OID4VP is flexible by design — but too much flexibility makes cross-border interoperability impossible. **HAIP** (High Assurance Interoperability Profile) locks down the choices so every EU implementation is compatible:
 
-| Area | HAIP Requirement |
-|------|-----------------|
+| Area | HAIP requires |
+|------|--------------|
 | Signatures | ES256 (ECDSA with P-256) only |
 | Response mode | `direct_post.jwt` or `dc_api.jwt` (always encrypted) |
 | Encryption | ECDH-ES with P-256, A128GCM or A256GCM |
 | Credential formats | SD-JWT VC (`dc+sd-jwt`) and mDOC |
 | Query language | DCQL |
 
-Without HAIP, two EU member states could implement OID4VP with completely different algorithms and formats, making cross-border interoperability impossible. HAIP is the "this is how we all agree to do it" profile.
+Without HAIP, Germany and France could implement OID4VP with completely different algorithms and formats. HAIP is the agreement on exactly how everyone does it.
 
 ## Holder Binding and Request Binding
 
 Every credential presentation must prove two things:
 
-**Holder binding** — The person presenting the credential is the person it was issued to.
-- In SD-JWT: the issuer embeds the holder's public key in the credential (`cnf.jwk`). At presentation, the wallet signs a KB-JWT with the corresponding private key.
-- In mDOC: the issuer embeds a `deviceKey` in the MSO. At presentation, the wallet signs a DeviceAuth structure with the device's private key.
+**Holder binding** — The person presenting is the person the credential was issued to.
+- SD-JWT: The issuer puts the holder's public key into the credential (`cnf.jwk`). When presenting, the wallet signs a KB-JWT with the matching private key.
+- mDOC: The issuer puts a `deviceKey` in the MSO. The wallet signs a DeviceAuth with the device's private key.
 
-**Request binding** — The response is tied to a specific verifier request, preventing replay attacks.
-- In SD-JWT: the KB-JWT contains `aud` (verifier identity), `nonce` (from the request), and `sd_hash` (binds to the exact credential + disclosed claims).
-- In mDOC: a SessionTranscript structure — deterministically computed from `nonce`, `client_id`, and `response_uri` — is included in the DeviceAuth signature. Both wallet and verifier compute it independently.
+**Request binding** — The response belongs to this specific request (prevents replay attacks).
+- SD-JWT: The KB-JWT contains `aud` (who asked), `nonce` (unique to this request), and `sd_hash` (ties it to the exact claims shared).
+- mDOC: A SessionTranscript — built from `nonce`, `client_id`, and `response_uri` — is signed into DeviceAuth. Both sides compute it independently, no shared secret needed.
 
-SD-JWT elegantly combines both in a single KB-JWT. mDOC separates them into DeviceAuth (holder) and SessionTranscript (request).
+SD-JWT combines both in a single KB-JWT. mDOC uses separate structures: DeviceAuth for holder binding, SessionTranscript for request binding.
 
-## Delivery Channels: How the Wallet Gets Involved
+## Delivery Channels
 
-Three mechanisms exist to trigger the wallet from a browser:
+Three ways to get the wallet involved from a browser:
 
-### 1. W3C Digital Credentials API (DC API)
+### 1. W3C Digital Credentials API
 
-The newest and cleanest approach — a browser-native API similar to WebAuthn:
+A browser-native API, similar to how passkeys/WebAuthn work:
 
 ```javascript
 const credential = await navigator.credentials.get({
@@ -426,7 +426,7 @@ const credential = await navigator.credentials.get({
 });
 ```
 
-The browser mediates wallet selection natively. No redirects, no QR codes. However, browser support is still limited:
+The browser handles wallet selection natively. No redirects, no QR codes. But browser support is still limited:
 
 | Browser | Support |
 |---------|---------|
@@ -434,51 +434,39 @@ The browser mediates wallet selection natively. No redirects, no QR codes. Howev
 | Safari 26+ (Sept 2025) | `org-iso-mdoc` only — no OpenID4VP |
 | Firefox | Negative standards position |
 
-The Safari limitation is significant: it only supports the ISO mDOC protocol through the DC API, not OpenID4VP. Implementers must handle both protocols for cross-browser compatibility.
+The Safari gap is a real problem: it only supports mDOC through this API, not OpenID4VP. You need to handle both protocols for cross-browser support.
 
 ### 2. Same-Device Redirect
 
-On mobile, the browser redirects to the wallet app using a custom URI scheme:
+On mobile, the browser redirects to the wallet app via a custom URI:
 
 ```
 openid4vp://?client_id=x509_san_dns:example.com
   &request_uri=https://example.com/request/abc123
 ```
 
-The wallet app intercepts this URI, fetches the full request, shows the consent UI, and POSTs the response back.
+The wallet opens, shows the consent screen, and POSTs the response back to the verifier.
 
 ### 3. Cross-Device QR Code
 
-On desktop, the same `openid4vp://` URI is encoded as a QR code. The user scans it with their phone's wallet app, which completes the flow. The verifier polls or uses a callback to detect when the response arrives.
+On desktop, the same `openid4vp://` URI is shown as a QR code. The user scans it with their phone, and the wallet handles the rest.
 
 ## Summary
 
-The EUDI wallet ecosystem is a comprehensive system built on well-established standards:
+The EUDI wallet ecosystem is built on a stack of well-established standards:
 
-- **eIDAS 2.0** provides the legal mandate
-- **OID4VCI** handles credential issuance (built on OAuth 2.0)
-- **OID4VP** handles credential verification (built on OAuth 2.0)
-- **SD-JWT** and **mDOC** provide selective disclosure credentials
-- **DCQL** specifies what claims are requested
-- **ETSI Trust Lists** establish issuer trust
-- **Token Status Lists** handle revocation
-- **HAIP** ensures EU-wide interoperability
-- **Registration Certificates** control what verifiers can request
+- **eIDAS 2.0** — the legal mandate
+- **OID4VCI** — credential issuance (built on OAuth 2.0)
+- **OID4VP** — credential verification (built on OAuth 2.0)
+- **SD-JWT** and **mDOC** — selective disclosure credential formats
+- **DCQL** — query language for requesting specific claims
+- **ETSI Trust Lists** — issuer trust verification
+- **Token Status Lists** — revocation checking
+- **HAIP** — the EU interoperability profile
+- **Registration Certificates** — access control for verifiers
 
-The system is designed with privacy at its core: selective disclosure means services only see what they need, encrypted responses prevent eavesdropping, ephemeral keys provide forward secrecy, and status list design prevents issuer tracking.
+Privacy runs through the whole design: selective disclosure shows only what's needed, responses are encrypted, ephemeral keys provide forward secrecy, and the status list design prevents issuer tracking.
 
 ---
 
-## Coming Up: Part 2 — Integrating EUDI Wallet with Keycloak
-
-Understanding the protocols is one thing — integrating them into a real identity and access management system is another. In Part 2, we'll show how we built a full OID4VP verifier as a Keycloak Identity Provider, turning wallet authentication into a first-class login method alongside Google, GitHub, or SAML.
-
-We'll cover:
-
-- **Why Keycloak is a natural fit** — OID4VP maps cleanly onto Keycloak's Identity Provider SPI, mapper infrastructure, and session management
-- **Three authentication flows** — DC API, same-device redirect, and cross-device QR code, all configurable per IdP instance
-- **Auto-generating DCQL from mappers** — Admins configure claim mappers in the Admin UI, the system builds the query automatically
-- **The German PID problem** — How we solved user authentication when the national ID has no unique identifier, using supplementary credentials and DCQL `credential_sets`
-- **Real-world deployment** — Testing against the German EUDI Wallet Sandbox and OIDF conformance suite
-
-Stay tuned.
+*In Part 2, we'll show how we integrated all of this into Keycloak — building a full OID4VP verifier as a Keycloak Identity Provider, and solving some tricky real-world problems along the way (like authenticating with the German PID, which has no unique identifier).*
