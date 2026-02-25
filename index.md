@@ -269,7 +269,7 @@ The wallet needs to know who's asking. Four **client identifier schemes** tell t
 | `x509_hash` | `x509_hash:<sha256>` | SHA-256 hash of X.509 certificate |
 | `verifier_attestation` | `verifier_attestation:<sub>` | Attestation JWT from trusted authority |
 
-The most common production scheme is `x509_san_dns`: the verifier signs its request with an X.509 certificate, and the wallet checks that the certificate's DNS name matches the `client_id`.
+For `x509_san_dns`, the verifier signs its request with an X.509 certificate, and the wallet checks that the certificate's DNS name matches the `client_id`. For `x509_hash`, the wallet matches against the certificate's SHA-256 fingerprint instead. HAIP mandates support for both X.509-based schemes.
 
 #### Registration Certificates
 
@@ -402,6 +402,7 @@ OID4VP is flexible by design — but too much flexibility makes cross-border int
 | Signatures | ES256 (ECDSA with P-256) only |
 | Response mode | `direct_post.jwt` or `dc_api.jwt` (always encrypted) |
 | Encryption | ECDH-ES with P-256, A128GCM or A256GCM |
+| Client ID schemes | `x509_san_dns` and `x509_hash` |
 | Credential formats | SD-JWT VC (`dc+sd-jwt`) and mDOC |
 | Query language | DCQL |
 
