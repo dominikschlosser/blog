@@ -451,22 +451,6 @@ The wallet opens, shows the consent screen, and POSTs the response back to the v
 
 On desktop, the same `openid4vp://` URI is shown as a QR code. The user scans it with their phone, and the wallet handles the rest.
 
-## Summary
-
-The EUDI wallet ecosystem is built on a stack of well-established standards:
-
-- **eIDAS 2.0** — the legal mandate
-- **OID4VCI** — credential issuance (built on OAuth 2.0)
-- **OID4VP** — credential verification (built on OAuth 2.0)
-- **SD-JWT** and **mDOC** — selective disclosure credential formats
-- **DCQL** — query language for requesting specific claims
-- **ETSI Trust Lists** — issuer trust verification
-- **Token Status Lists** — revocation checking
-- **HAIP** — the EU interoperability profile
-- **Registration Certificates** — access control for verifiers
-
-Privacy runs through the whole design: selective disclosure shows only what's needed, responses are encrypted, ephemeral keys provide forward secrecy, and the status list design prevents issuer tracking.
-
 ---
 
-*In Part 2, we'll show how we integrated all of this into Keycloak — building a full OID4VP verifier as a Keycloak Identity Provider, and solving some tricky real-world problems along the way (like authenticating with the German PID, which has no unique identifier).*
+*In Part 2, we'll show how we integrated all of this into Keycloak — building a full OID4VP verifier as a Keycloak Identity Provider.*
