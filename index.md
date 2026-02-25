@@ -97,9 +97,17 @@ Selective disclosure works the same way in principle: the MSO has a hash for eac
 |--------|--------|------|
 | Encoding | JSON/JWT (text) | CBOR (binary) |
 | Selective disclosure | Hashed disclosures | Digests in MSO |
-| Holder binding | KB-JWT with `cnf.jwk` | DeviceAuth with device key |
-| Session binding | KB-JWT `aud` + `nonce` | SessionTranscript hash |
 | Primary use | Online verification | Proximity + online |
+
+### Holder Binding and Request Binding
+
+When someone presents a credential, the verifier needs to know two things: **Is this person the rightful owner?** and **Is this response meant for my request?** Both formats solve this, but differently.
+
+**Holder binding** proves the presenter owns the credential. During issuance, the issuer embeds the holder's public key into the credential. During presentation, the wallet signs a proof with the matching private key. In SD-JWT, this key lives in the `cnf.jwk` claim and the proof is a **KB-JWT** (Key Binding JWT). In mDOC, the key is in the MSO's `deviceKey` field and the proof is a **DeviceAuth** COSE signature.
+
+**Request binding** ties the response to a specific verifier request, preventing replay attacks. In SD-JWT, the KB-JWT includes `aud` (who asked), `nonce` (unique to this request), and `sd_hash` (a hash over the exact claims being shared). In mDOC, a **SessionTranscript** — built from `nonce`, `client_id`, and `response_uri` — is signed into DeviceAuth. Both sides compute it independently, no shared secret needed.
+
+SD-JWT combines both in a single KB-JWT. mDOC uses separate structures: DeviceAuth for holder binding, SessionTranscript for request binding.
 
 ## Credential Issuance (OID4VCI)
 
@@ -159,7 +167,7 @@ Before the wallet can show credentials, it needs to get them. OID4VCI defines ho
 6. The wallet sends a credential request with the proof.
 7. The issuer checks the proof, creates the credential (embedding the wallet's public key so the credential is bound to this wallet), signs it, and sends it back. The wallet stores it locally.
 
-There's also an **Authorization Code Flow** where the wallet starts the process and the user logs in via a standard OAuth redirect, but the pre-authorized flow is more common in the EUDI ecosystem.
+There's also an **Authorization Code Flow** where the wallet initiates the process: it discovers the issuer's metadata, starts an OAuth 2.0 authorization request with PKCE, the user authenticates at the issuer, and the wallet exchanges the resulting authorization code for an access token. The German EUDI wallet uses this flow — the wallet itself triggers issuance and the user authenticates directly at the issuer during the process.
 
 ## Credential Verification (OID4VP)
 
@@ -393,20 +401,6 @@ OID4VP is flexible by design — but too much flexibility makes cross-border int
 
 Without HAIP, Germany and France could implement OID4VP with completely different algorithms and formats. HAIP is the agreement on exactly how everyone does it.
 
-## Holder Binding and Request Binding
-
-Every credential presentation must prove two things:
-
-**Holder binding** — The person presenting is the person the credential was issued to.
-- SD-JWT: The issuer puts the holder's public key into the credential (`cnf.jwk`). When presenting, the wallet signs a KB-JWT with the matching private key.
-- mDOC: The issuer puts a `deviceKey` in the MSO. The wallet signs a DeviceAuth with the device's private key.
-
-**Request binding** — The response belongs to this specific request (prevents replay attacks).
-- SD-JWT: The KB-JWT contains `aud` (who asked), `nonce` (unique to this request), and `sd_hash` (ties it to the exact claims shared).
-- mDOC: A SessionTranscript — built from `nonce`, `client_id`, and `response_uri` — is signed into DeviceAuth. Both sides compute it independently, no shared secret needed.
-
-SD-JWT combines both in a single KB-JWT. mDOC uses separate structures: DeviceAuth for holder binding, SessionTranscript for request binding.
-
 ## Delivery Channels
 
 Three ways to get the wallet involved from a browser:
@@ -449,7 +443,7 @@ The wallet opens, shows the consent screen, and POSTs the response back to the v
 
 ### 3. Cross-Device QR Code
 
-On desktop, the same `openid4vp://` URI is shown as a QR code. The user scans it with their phone, and the wallet handles the rest.
+On desktop, the same `openid4vp://` URI is shown as a QR code. The user scans it with their phone's wallet app. The wallet fetches the request, shows the consent screen, and POSTs the response to the verifier's `response_uri` — just like in the same-device flow. Meanwhile, the browser polls the verifier for the result until the response arrives.
 
 ---
 
