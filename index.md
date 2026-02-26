@@ -465,6 +465,8 @@ The wallet opens, shows the consent screen, and POSTs the response back to the v
 
 On desktop, the same `openid4vp://` URI is shown as a QR code. The user scans it with their phone's wallet app. The wallet fetches the request, shows the consent screen, and POSTs the response to the verifier's `response_uri` — just like in the same-device flow.
 
+The key difference: in the cross-device case, the verifier's `direct_post` endpoint must **not** return a `redirect_uri` in its response — otherwise the wallet would try to open that redirect on the phone, which isn't where the user's browser session lives. Instead, the relying party on the desktop side needs its own mechanism to detect that the response has arrived, for example by polling a status endpoint.
+
 ---
 
 *In Part 2, we'll show how we integrated all of this into Keycloak — building a full OID4VP verifier as a Keycloak Identity Provider.*
