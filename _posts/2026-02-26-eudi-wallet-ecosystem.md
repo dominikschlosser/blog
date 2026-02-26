@@ -1,10 +1,10 @@
 ---
 layout: default
-title: "The EUDI Wallet Ecosystem: A Technical Deep Dive (Part 1)"
+title: "The EUDI Wallet Ecosystem: A Technical Overview (Part 1)"
 date: 2026-02-26
 ---
 
-# The EUDI Wallet Ecosystem: A Technical Deep Dive
+# The EUDI Wallet Ecosystem: A Technical Overview
 
 *Part 1 — Protocols, Credential Formats, and Verification*
 
