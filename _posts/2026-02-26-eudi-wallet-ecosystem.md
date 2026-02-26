@@ -272,6 +272,30 @@ DCQL also supports **`credential_sets`** for offering alternatives — for examp
 
 The wallet picks whichever format it has.
 
+Individual claims can also be marked as optional using **`claim_sets`**. By default, all listed claims are required — the wallet must disclose them or the query fails. With `claim_sets`, you can define groups of claims where some are mandatory and others are nice-to-have:
+
+```json
+{
+  "credentials": [{
+    "id": "pid",
+    "format": "dc+sd-jwt",
+    "meta": { "vct_values": ["eu.europa.ec.eudi.pid.1"] },
+    "claims": [
+      { "id": "0", "path": ["family_name"] },
+      { "id": "1", "path": ["given_name"] },
+      { "id": "2", "path": ["birthdate"] },
+      { "id": "3", "path": ["address"] }
+    ],
+    "claim_sets": [
+      ["0", "1", "2", "3"],
+      ["0", "1", "2"]
+    ]
+  }]
+}
+```
+
+This says: "I need family name, given name, and birthdate. I'd also like the address, but it's not required." The wallet tries to satisfy the first `claim_set` (all four claims), but can fall back to the second (without address) if it's not available or the user declines to share it.
+
 ### Verifier Authentication
 
 The wallet needs to know who's asking. Four **client identifier schemes** tell the wallet how to verify the verifier:
