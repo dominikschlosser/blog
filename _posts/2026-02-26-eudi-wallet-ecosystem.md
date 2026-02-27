@@ -84,7 +84,7 @@ Credential payload:
 
 The random salt in each disclosure makes sure that the same value (like "Erika") produces a different hash every time. This prevents anyone from guessing or correlating values across credentials.
 
-If you want to inspect SD-JWTs and mDOCs locally, [ssi-debugger](https://github.com/dominikschlosser/ssi-debugger) lets you decode and verify both formats.
+If you want to inspect SD-JWTs and mDOCs locally, [oid4vc-dev](https://github.com/dominikschlosser/oid4vc-dev) lets you decode and verify both formats.
 
 ### ISO mDOC (Mobile Document) - ISO 18013-5
 
