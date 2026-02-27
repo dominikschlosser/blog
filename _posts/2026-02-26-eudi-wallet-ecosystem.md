@@ -311,7 +311,7 @@ For `x509_san_dns`, the verifier signs its request with an X.509 certificate, an
 
 #### Registration Certificates
 
-On top of that, the EUDI ecosystem requires verifiers to carry a **Registration Certificate** (`rc-rp+jwt`). This is issued by a national Trust Anchor and explicitly lists what credentials and claims the verifier is allowed to ask for. The verifier includes it in the authorization request object via the `verifier_info` parameter:
+On top of that, the EUDI ecosystem requires verifiers to carry a **Registration Certificate** (`rc-rp+jwt`). This is issued by a national Trust Anchor and explicitly lists what credentials and claims the verifier is allowed to ask for:
 
 ```json
 {
@@ -327,7 +327,7 @@ On top of that, the EUDI ecosystem requires verifiers to carry a **Registration 
 }
 ```
 
-The wallet enforces this: if a verifier asks for claims that aren't in its registration certificate, the request gets rejected. A verifier that's only approved for age verification can't sneakily request your full name and address.
+The verifier includes this certificate in the authorization request object via the `verifier_info` parameter. The wallet enforces it: if a verifier asks for claims that aren't in its registration certificate, the request gets rejected. A verifier that's only approved for age verification can't sneakily request your full name and address.
 
 ### Secure Response Delivery
 
