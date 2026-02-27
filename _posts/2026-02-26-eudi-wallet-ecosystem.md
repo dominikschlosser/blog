@@ -258,8 +258,8 @@ DCQL also supports **`credential_sets`** for offering alternatives — for examp
       "format": "mso_mdoc",
       "meta": { "doctype_value": "eu.europa.ec.eudi.pid.1" },
       "claims": [
-        { "namespace": "eu.europa.ec.eudi.pid.1", "claim_name": "family_name" },
-        { "namespace": "eu.europa.ec.eudi.pid.1", "claim_name": "given_name" }
+        { "path": ["eu.europa.ec.eudi.pid.1", "family_name"] },
+        { "path": ["eu.europa.ec.eudi.pid.1", "given_name"] }
       ]
     }
   ],
@@ -398,9 +398,9 @@ For an SD-JWT credential, the verifier runs through these checks:
    - Check `aud` matches the verifier's `client_id`
    - Check `nonce` matches the request nonce
    - Check `iat` is recent
-   - Check `sd_hash` matches `base64url(SHA-256(<full presentation string>))`
+   - Check `sd_hash` matches `base64url(SHA-256(<issuer-jwt>~<disclosure-1>~...~<disclosure-n>~))`
 
-The `sd_hash` is important: it ties the KB-JWT to the exact set of disclosed claims. Without it, someone could steal a valid KB-JWT and attach it to different disclosures.
+The `sd_hash` is important: it's computed over the issuer-signed JWT and the selected disclosures (but not the KB-JWT itself), tying the proof to the exact set of disclosed claims. Without it, someone could steal a valid KB-JWT and attach it to different disclosures.
 
 #### mDOC Verification
 
@@ -433,7 +433,7 @@ This is **privacy-preserving**: since the verifier always downloads the entire l
 
 ## HAIP: The Interoperability Profile
 
-OID4VP is flexible by design — but too much flexibility makes cross-border interoperability impossible. **HAIP** (High Assurance Interoperability Profile) locks down the choices so every EU implementation is compatible:
+OID4VP is flexible by design — but too much flexibility makes cross-border interoperability impossible. **HAIP** (OpenID4VC High Assurance Interoperability Profile) locks down the choices so every EU implementation is compatible:
 
 | Area | HAIP requires |
 |------|--------------|
