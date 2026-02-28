@@ -8,7 +8,7 @@ date: 2026-02-28
 
 Building OID4VC integrations means dealing with a lot of encoded tokens, complex flows, and not a lot of tooling to help. You end up copy-pasting tokens into jwt.io, manually decoding CBOR, writing throwaway scripts to simulate a wallet, and hoping for the best. So I built two tools to fix that.
 
-## oid4vc-dev: A Swiss Army Knife for Credential Debugging
+## oid4vc-dev: A Swiss Army Knife for OID4VC Development
 
 [oid4vc-dev](https://github.com/dominikschlosser/oid4vc-dev) is a CLI tool (and web UI) that handles everything you need during development. Paste in a credential, and it figures out the format and decodes it. Point it at a QR code on your screen, and it grabs the content. Need a test credential? It generates one. Want to see what's flying between your verifier and a wallet? It can proxy and inspect the traffic live.
 
