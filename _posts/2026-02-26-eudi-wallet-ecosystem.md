@@ -8,6 +8,8 @@ date: 2026-02-26
 
 *Part 1 - Protocols, Credential Formats, and Verification*
 
+> **Note (March 20, 2026):** The section on trust lists and issuer verification was expanded in this version of the post.
+
 The EU is building a digital identity wallet for every citizen. **eIDAS 2.0** (2024) requires every member state to offer one: a smartphone app that lets people log in to online services, store credentials, and share only the data they choose to.
 
 This post explains how the whole thing works, starting with the big picture and then going deeper into the protocols, credential formats, and verification steps.
@@ -311,7 +313,7 @@ For `x509_san_dns`, the verifier signs its request with an X.509 certificate, an
 
 #### Registration Certificates
 
-On top of that, the EUDI ecosystem requires verifiers to carry a **Registration Certificate** (`rc-rp+jwt`). This is issued by a national Trust Anchor and explicitly lists what credentials and claims the verifier is allowed to ask for:
+In the EUDI ecosystem, verifier authorization data can be conveyed either in a **Registration Certificate** (`rc-rp+jwt`) or directly by the Registrar. When a registration certificate is used, it explicitly lists what credentials and claims the verifier is allowed to ask for:
 
 ```json
 {
@@ -327,7 +329,7 @@ On top of that, the EUDI ecosystem requires verifiers to carry a **Registration 
 }
 ```
 
-The verifier includes this certificate in the authorization request object via the `verifier_info` parameter. The wallet enforces it: if a verifier asks for claims that aren't in its registration certificate, the request gets rejected. A verifier that's only approved for age verification can't sneakily request your full name and address.
+The verifier can include this certificate in the authorization request object via the `verifier_info` parameter. The wallet needs the same underlying authorization data even when no certificate is carried in the request: it can obtain it from the Registrar instead. In either case, if a verifier asks for claims outside its registered scope, the request gets rejected. A verifier that's only approved for age verification can't sneakily request your full name and address.
 
 ### Secure Response Delivery
 
@@ -355,37 +357,92 @@ The wallet POSTs the encrypted response directly to the verifier's `response_uri
 
 After decrypting the response, the verifier needs to check that the credential is real, unmodified, and presented by its rightful owner. This is the most involved part.
 
-#### Checking Issuer Trust via ETSI Trust Lists
+#### Checking Issuer Trust and Authorization via ETSI Trust Lists
 
 How does the verifier know the credential came from a legitimate issuer?
 
-1. **Fetch** the trust list (a signed JWT) from the Trust Anchor
-2. **Find** the credential's issuer in the list
-3. **Get** the issuer's X.509 certificate from the list entry
-4. **Verify** the credential's signature with that certificate
+1. **Fetch** the signed trust list published by the Trust Anchor
+2. **Find** the credential's issuer or provider entry in the list
+3. **Check** that the relevant trust service has the right service type and appears in the relevant EUDI trust list
+4. **Check** that the trust service, or associated registration data, covers the specific attestation type being verified
+5. **Check** that the credential's signing certificate or key material chains to that trusted service information
+6. **Verify** the credential's signature
 
 ```json
 {
-  "trusted_entities": [{
-    "entity_id": "https://pid-issuer.bundesdruckerei.de",
-    "entity_name": "Bundesdruckerei PID Issuer",
-    "trust_services": [{
-      "type": "pid-issuance",
-      "status": "granted",
-      "x5c": ["MIIBjTCCATOgAwIBAgIUQ8..."]
+  "ListAndSchemeInformation": {
+    "LoTEType": "http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList",
+    "ListIssueDateTime": "2026-03-21T23:04:36.430Z",
+    "NextUpdate": "2026-03-22T23:04:36.430Z",
+    "SchemeOperatorName": [{ "lang": "de-DE", "value": "SPRIND GmbH" }]
+  },
+  "TrustedEntitiesList": [{
+    "TrustedEntityInformation": {
+      "TEName": [{ "lang": "de-DE", "value": "Bundesdruckerei GmbH" }],
+      "TEInformationURI": [{ "lang": "de-DE", "uriValue": "https://www.bdr.de" }]
+    },
+    "TrustedEntityServices": [{
+      "ServiceInformation": {
+        "ServiceTypeIdentifier": "http://uri.etsi.org/19602/SvcType/PID/Issuance",
+        "ServiceName": [{ "lang": "de-DE", "value": "PID-Ausstellungsdienst der Bundesdruckerei" }],
+        "ServiceDigitalIdentity": {
+          "X509Certificates": [{ "val": "MIICPTCCAeKgAwIBAgIUeQcP5UXW68vbf5vr25j+JfnBz0Ew..." }]
+        }
+      }
     }]
   }]
 }
 ```
 
+The example above is an excerpt from a PID Providers List JWT. For this specific case, the authorization signal is the service type itself: a verifier checking a PID must find a trusted service with `ServiceTypeIdentifier = .../PID/Issuance`. ETSI TS 119 602's PID Providers List profile does **not** use a `ServiceStatus` field: listed PID services are approved by virtue of being present in the list, and services that are no longer approved are removed from the list. Operationally, a verifier fetches and revalidates the list using normal HTTP caching headers such as `Cache-Control`, `ETag`, or `Last-Modified`, while also treating `NextUpdate` as the LoTE's expiry bound.
+
+More generally, the split is:
+
+- the trust list tells the verifier whether this provider and trust service are trusted in the EUDI ecosystem
+- the service type, and in some ecosystems additional registration data, tells the verifier what this provider is actually allowed to issue
+- the credential's signature proves that this exact credential came from a key belonging to that trusted provider
+
+That last point matters. A valid signature alone is not enough. It only proves that some private key signed the credential. The verifier also has to establish that the key belongs to a provider that is both trusted and entitled to issue this kind of credential.
+
+For SD-JWT VC in general, issuer keys can be distributed through JWT VC Issuer Metadata at `/.well-known/jwt-vc-issuer`, with either embedded `jwks` or a `jwks_uri`, or through an X.509 certificate chain in the credential header. In the EUDI/HAIP 1.0 profile, issuer signature validation uses the X.509 `x5c` chain from the credential header. The verifier must check issuer authorization independently; the `vct` value itself does **not** authorize the issuer.
+
 Only the Trust Anchor's own certificate needs to be pre-configured. Everything else is looked up dynamically.
+
+**Concrete example**
+
+Suppose the verifier receives this SD-JWT VC:
+
+```json
+{
+  "header": {
+    "alg": "ES256",
+    "typ": "dc+sd-jwt",
+    "x5c": ["leaf-cert", "issuer-intermediate-cert"]
+  },
+  "payload": {
+    "vct": "eu.europa.ec.eudi.pid.1"
+  }
+}
+```
+
+The verifier then checks:
+
+1. the list type is `http://uri.etsi.org/19602/LoTEType/EUPIDProvidersList`, so this is the right trust list for PID issuers
+2. there is a matching trusted service with `ServiceTypeIdentifier = http://uri.etsi.org/19602/SvcType/PID/Issuance`
+3. the cached list is usable: HTTP cache-control or revalidation rules have been applied, and `NextUpdate` is not in the past
+4. that service entry is listed under the `Bundesdruckerei GmbH` trusted-entity entry
+5. the certificate chain from the credential header links back to the `X509Certificates` material for that PID issuance service
+6. because the credential's `vct` is `eu.europa.ec.eudi.pid.1`, the `.../PID/Issuance` service type is the relevant authorization check
+7. the SD-JWT signature verifies with the public key from the end-entity certificate
+
+If the signature verifies but the service type, trust-list freshness, or certificate-chain linkage checks fail, the verifier rejects the credential. A technically valid signature is not enough if the certificate chain does not lead back to a trusted PID issuance service in the PID Providers List used for verification.
 
 #### SD-JWT Verification
 
 For an SD-JWT credential, the verifier runs through these checks:
 
 1. **Parse:** Split on `~` to get the issuer JWT, disclosures, and KB-JWT
-2. **Check the issuer signature:** Look up the issuer's key in the trust list, verify the JWT signature
+2. **Resolve and check the issuer signature:** Read the SD-JWT header's `x5c`, validate the certificate chain against the trusted service information, confirm that the matching trusted service category covers the credential's attestation type, and verify the JWT signature with the end-entity certificate's public key
 3. **Check timestamps:** `iat` (issued at) in the past, `exp` (expires) in the future
 4. **Check each disclosure**:
    - Decode it: `[salt, claim_name, claim_value]`
@@ -442,6 +499,7 @@ OID4VP is flexible by design, but too much flexibility makes cross-border intero
 | Encryption | ECDH-ES with P-256, A128GCM or A256GCM |
 | Client ID schemes | `x509_san_dns` and `x509_hash` |
 | Credential formats | SD-JWT VC (`dc+sd-jwt`) and mDOC |
+| SD-JWT VC issuer key resolution | X.509 via the credential's `x5c` header chain, not JWT VC Issuer Metadata `jwks` / `jwks_uri` |
 | Query language | DCQL |
 
 Without HAIP, Germany and France could implement OID4VP with completely different algorithms and formats. HAIP is the agreement on exactly how everyone does it.
@@ -465,7 +523,7 @@ const credential = await navigator.credentials.get({
 });
 ```
 
-The browser handles wallet selection natively. No redirects, no QR codes. But browser support is still limited:
+The browser handles wallet selection natively. No redirects, no QR codes. Browser support is limited:
 
 | Browser | Support |
 |---------|---------|
