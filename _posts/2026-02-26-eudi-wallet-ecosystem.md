@@ -552,4 +552,4 @@ The key difference: in the cross-device case, the verifier's `direct_post` endpo
 
 ---
 
-*In Part 2, we'll show how we integrated all of this into Keycloak, building a full OID4VP verifier as a Keycloak Identity Provider.*
+*In [Part 2]({{ '/2026/04/11/eudi-wallet-keycloak-part-2.html' | relative_url }}), we'll show how we integrated all of this into Keycloak, building a full OID4VP verifier as a Keycloak Identity Provider.*
