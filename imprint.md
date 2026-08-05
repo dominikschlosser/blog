@@ -5,7 +5,7 @@ title: Imprint
 
 # Imprint (Impressum)
 
-**Information according to Section 5 TMG (German Telemedia Act)**
+**Information according to § 5 DDG (Digitale-Dienste-Gesetz, German Digital Services Act)**
 
 Dominik Schlosser
 Steiner Ring 28
@@ -13,13 +13,13 @@ Steiner Ring 28
 Germany
 
 **Contact**
-Email: dominik.schlosser@gmail.com
+Email: dominik.schlosser@googlemail.com
 
 ---
 
 ## Liability for Content
 
-The contents of this website have been created with the utmost care. However, I cannot guarantee the accuracy, completeness, or timeliness of the content. As a service provider, I am responsible for my own content on these pages in accordance with Section 7(1) TMG. According to Sections 8 to 10 TMG, however, I am not obligated to monitor transmitted or stored third-party information or to investigate circumstances that indicate illegal activity. Obligations to remove or block the use of information under general law remain unaffected. Liability in this regard is only possible from the time of knowledge of a specific infringement. Upon becoming aware of such violations, I will remove the content immediately.
+The contents of this website have been created with the utmost care. However, I cannot guarantee the accuracy, completeness, or timeliness of the content. As a service provider, I am responsible for my own content on these pages in accordance with § 7(1) DDG. According to §§ 8 to 10 DDG, however, I am not obligated to monitor transmitted or stored third-party information or to investigate circumstances that indicate illegal activity. Obligations to remove or block the use of information under general law remain unaffected. Liability in this regard is only possible from the time of knowledge of a specific infringement. Upon becoming aware of such violations, I will remove the content immediately.
 
 ## Liability for Links
 

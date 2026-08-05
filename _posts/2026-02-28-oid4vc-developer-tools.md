@@ -16,9 +16,9 @@ Here's what it can do:
 
 | Command | What it does |
 |---------|-------------|
-| `decode` | Auto-detects and parses SD-JWTs, mDOCs, JWT VCs, OID4VCI offers, trust lists |
+| `decode` | Auto-detects and parses SD-JWTs, mdocs, JWT VCs, OID4VCI offers, trust lists |
 | `validate` | Verifies signatures, checks expiration, validates against trust lists |
-| `issue` | Generates test credentials (SD-JWT, JWT, mDOC) |
+| `issue` | Generates test credentials (SD-JWT, JWT, mdoc) |
 | `wallet` | A full stateful test wallet with CLI-driven OID4VP and OID4VCI flows |
 | `proxy` | Reverse proxy that intercepts and classifies wallet traffic with a live dashboard |
 | `serve` | Web UI for pasting and inspecting credentials in the browser |

@@ -27,4 +27,4 @@ This website is hosted on [GitHub Pages](https://pages.github.com). GitHub may c
 
 ## Your Rights
 
-Under the GDPR, you have the right to access, rectify, or delete any personal data concerning you, as well as the right to data portability and the right to lodge a complaint with a supervisory authority. Since this website does not collect personal data, these rights are unlikely to be applicable. If you have questions, contact me at dominik.schlosser@gmail.com.
+Under the GDPR, you have the right to access, rectify, or delete any personal data concerning you, as well as the right to data portability and the right to lodge a complaint with a supervisory authority. Since this website does not collect personal data, these rights are unlikely to be applicable. If you have questions, contact me at dominik.schlosser@googlemail.com.

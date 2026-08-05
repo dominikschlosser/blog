@@ -86,11 +86,11 @@ Credential payload:
 
 The random salt in each disclosure makes sure that the same value (like "Erika") produces a different hash every time. This prevents anyone from guessing or correlating values across credentials.
 
-If you want to inspect SD-JWTs and mDOCs locally, [oid4vc-dev](https://github.com/dominikschlosser/oid4vc-dev) lets you decode and verify both formats.
+If you want to inspect SD-JWTs and mdocs locally, [oid4vc-dev](https://github.com/dominikschlosser/oid4vc-dev) lets you decode and verify both formats.
 
-### ISO mDOC (Mobile Document) - ISO 18013-5
+### ISO mdoc (Mobile Document) - ISO 18013-5
 
-mDOC uses CBOR (a compact binary format) instead of JSON. It was originally designed for proximity use cases like NFC and Bluetooth (think: showing your driving license at a checkpoint), but also works over the internet.
+mdoc uses CBOR (a compact binary format) instead of JSON. It was originally designed for proximity use cases like NFC and Bluetooth (think: showing your driving license at a checkpoint), but also works over the internet.
 
 The structure is different from SD-JWT but the idea is the same:
 
@@ -99,7 +99,7 @@ The structure is different from SD-JWT but the idea is the same:
 
 Selective disclosure works the same way in principle: the MSO has a hash for each claim, and the wallet only reveals the items the user approves.
 
-| Aspect | SD-JWT | mDOC |
+| Aspect | SD-JWT | mdoc |
 |--------|--------|------|
 | Encoding | JSON/JWT (text) | CBOR (binary) |
 | Selective disclosure | Hashed disclosures | Digests in MSO |
@@ -109,11 +109,11 @@ Selective disclosure works the same way in principle: the MSO has a hash for eac
 
 When someone presents a credential, the verifier needs to know two things: **Is this person the rightful owner?** and **Is this response meant for my request?** Both formats solve this, but differently.
 
-**Holder binding** proves the presenter owns the credential. During issuance, the issuer embeds the holder's public key into the credential. During presentation, the wallet signs a proof with the matching private key. In SD-JWT, this key lives in the `cnf.jwk` claim and the proof is a **KB-JWT** (Key Binding JWT). In mDOC, the key is in the MSO's `deviceKey` field and the proof is a **DeviceAuth** COSE signature.
+**Holder binding** proves the presenter owns the credential. During issuance, the issuer embeds the holder's public key into the credential. During presentation, the wallet signs a proof with the matching private key. In SD-JWT, this key lives in the `cnf.jwk` claim and the proof is a **KB-JWT** (Key Binding JWT). In mdoc, the key is in the MSO's `deviceKey` field and the proof is a **DeviceAuth** COSE signature.
 
-**Request binding** ties the response to a specific verifier request, preventing replay attacks. In SD-JWT, the KB-JWT includes `aud` (who asked), `nonce` (unique to this request), and `sd_hash` (a hash over the exact claims being shared). In mDOC, a **SessionTranscript** (built from `nonce`, `client_id`, and `response_uri`) is signed into DeviceAuth. Both sides compute it independently, no shared secret needed.
+**Request binding** ties the response to a specific verifier request, preventing replay attacks. In SD-JWT, the KB-JWT includes `aud` (who asked), `nonce` (unique to this request), and `sd_hash` (a hash over the exact claims being shared). In mdoc, a **SessionTranscript** (built from `nonce`, `client_id`, and `response_uri`) is signed into DeviceAuth. Both sides compute it independently, no shared secret needed.
 
-SD-JWT combines both in a single KB-JWT. mDOC uses separate structures: DeviceAuth for holder binding, SessionTranscript for request binding.
+SD-JWT combines both in a single KB-JWT. mdoc also uses a single holder signature: DeviceAuth signs a payload that contains the SessionTranscript, so the request binding is an input to that signature rather than a separate proof.
 
 ## Credential Issuance (OID4VCI)
 
@@ -241,7 +241,7 @@ The verifier describes what it needs using **DCQL (Digital Credentials Query Lan
 
 This says: "I need a PID credential in SD-JWT format, specifically the family name, given name, and birthdate." The wallet only reveals those three fields, nothing else.
 
-DCQL also supports **`credential_sets`** for offering alternatives. For example, accepting a PID in either SD-JWT or mDOC format:
+DCQL also supports **`credential_sets`** for offering alternatives. For example, accepting a PID in either SD-JWT or mdoc format:
 
 ```json
 {
@@ -459,9 +459,9 @@ For an SD-JWT credential, the verifier runs through these checks:
 
 The `sd_hash` is important: it's computed over the issuer-signed JWT and the selected disclosures (but not the KB-JWT itself), tying the proof to the exact set of disclosed claims. Without it, someone could steal a valid KB-JWT and attach it to different disclosures.
 
-#### mDOC Verification
+#### mdoc Verification
 
-mDOC verification follows the same logic but uses CBOR/COSE instead of JSON/JWT:
+mdoc verification follows the same logic but uses CBOR/COSE instead of JSON/JWT:
 
 1. **Parse** the CBOR structure
 2. **Verify the COSE signature** (IssuerAuth) with the issuer's key from the trust list
@@ -498,7 +498,7 @@ OID4VP is flexible by design, but too much flexibility makes cross-border intero
 | Response mode | `direct_post.jwt` or `dc_api.jwt` (always encrypted) |
 | Encryption | ECDH-ES with P-256, A128GCM or A256GCM |
 | Client ID schemes | `x509_san_dns` and `x509_hash` |
-| Credential formats | SD-JWT VC (`dc+sd-jwt`) and mDOC |
+| Credential formats | SD-JWT VC (`dc+sd-jwt`) and mdoc |
 | SD-JWT VC issuer key resolution | X.509 via the credential's `x5c` header chain, not JWT VC Issuer Metadata `jwks` / `jwks_uri` |
 | Query language | DCQL |
 
@@ -531,7 +531,7 @@ The browser handles wallet selection natively. No redirects, no QR codes. Browse
 | Safari 26+ (Sept 2025) | `org-iso-mdoc` only (no OpenID4VP) |
 | Firefox | Negative standards position |
 
-The Safari gap is a real problem: it only supports mDOC through this API, not OpenID4VP. You need to handle both protocols for cross-browser support.
+The Safari gap is a real problem: it only supports mdoc through this API, not OpenID4VP. You need to handle both protocols for cross-browser support.
 
 ### 2. Same-Device Redirect
 
